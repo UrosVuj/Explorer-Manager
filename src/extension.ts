@@ -15,12 +15,28 @@ export function activate(context: vscode.ExtensionContext)
     directoryOperator
   );
 
-  vscode.window.registerTreeDataProvider(
-    "explorer-bookmark",
-    directoryProvider);
+  function debounce(fn: Function, delay: number) {
+    let timer: NodeJS.Timeout;
+    return function(this: any, ...args: any[]) {
+      if (timer) { clearTimeout(timer); }
+      timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+  }
+
+  const filesChangeEvent = debounce(() => {
+    vscode.commands.executeCommand(DirectoryProviderCommands.RefreshEntry);
+  }, 300);
+
+  const watcher = vscode.workspace.createFileSystemWatcher('**', false, true, false);
 
   context.subscriptions.push(
     ...[
+      vscode.window.registerTreeDataProvider(
+        "explorer-bookmark",
+      directoryProvider),
+      watcher,
+      watcher.onDidCreate(filesChangeEvent),
+      watcher.onDidDelete(filesChangeEvent),
       vscode.commands.registerCommand(
         DirectoryProviderCommands.RefreshEntry,
         () => directoryProvider.refresh()
